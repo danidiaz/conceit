@@ -3,6 +3,7 @@
 
 module Control.Concurrent.Conceit ( 
           Conceit (..)
+        , _Conceit
         , conceit
         , mapConceit
     ) where
@@ -61,6 +62,9 @@ instance (Show e, Typeable e) => Alternative (Conceit e) where
 instance (Show e, Typeable e, Monoid a) => Monoid (Conceit e a) where
    mempty = Conceit . pure . pure $ mempty
    mappend c1 c2 = (<>) <$> c1 <*> c2
+
+_Conceit :: IO a -> Conceit e a
+_Conceit = Conceit . fmap pure  
 
 conceit :: (Show e, Typeable e) 
         => IO (Either e a)
