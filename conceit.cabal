@@ -23,8 +23,8 @@ Library
     other-modules: 
     build-depends:         
         base >= 4.4 && < 5,
+        semigroupoids ==4.*,
         bifunctors >= 4.1 && < 5,
-        async >= 2.0.1 && < 2.1,
         void >= 0.6 && < 0.7
 
 

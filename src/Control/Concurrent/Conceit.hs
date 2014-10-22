@@ -18,19 +18,6 @@ import Control.Applicative
 import Control.Monad
 import Control.Exception
 import Control.Concurrent
-import Control.Concurrent.Async(Concurrently(..),concurrently,mapConcurrently)
-
-data WrappedError e = WrappedError e
-    deriving (Show, Typeable)
-
-instance (Show e, Typeable e) => Exception (WrappedError e)
-
-elideError :: (Show e, Typeable e) => IO (Either e a) -> IO a
-elideError action = action >>= either (throwIO . WrappedError) return
-
-revealError :: (Show e, Typeable e) => IO a -> IO (Either e a)  
-revealError action = catch (action >>= return . Right)
-                           (\(WrappedError e) -> return . Left $ e)   
 
 {-| 
     'Conceit' is very similar to 'Control.Concurrent.Async.Concurrently' from the
@@ -63,6 +50,19 @@ instance Alternative (Conceit e) where
 instance (Monoid a) => Monoid (Conceit e a) where
    mempty = Conceit . pure . pure $ mempty
    mappend c1 c2 = (<>) <$> c1 <*> c2
+
+instance Monad (Conceit e) where
+   return = pure
+   f >>= k = Conceit $ do
+      x <- runConceit f
+      case x of 
+         Left e -> return $ Left e                      
+         Right r -> runConceit $ k r
+   f >> k = f *> k
+
+instance MonadPlus (Conceit e) where
+   mzero = empty
+   mplus = (<|>)
 
 _Conceit :: IO a -> Conceit e a
 _Conceit = Conceit . fmap pure  
