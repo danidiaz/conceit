@@ -1,5 +1,5 @@
 name:          conceit
-version:       0.1.1.0
+version:       0.2.0.0
 license:       BSD3
 license-file:  LICENSE
 data-files:    
@@ -24,7 +24,9 @@ Library
     build-depends:         
         base >= 4.4 && < 5,
         bifunctors >= 4.1 && < 5,
-        async >= 2.0.1 && < 2.1
+        async >= 2.0.1 && < 2.1,
+        void >= 0.6 && < 0.7
+
 
 Source-repository head
     type:     git

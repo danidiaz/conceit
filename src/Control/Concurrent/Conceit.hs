@@ -4,6 +4,7 @@
 module Control.Concurrent.Conceit ( 
           Conceit (..)
         , _Conceit
+        , _runConceit
         , conceit
         , mapConceit
     ) where
@@ -12,11 +13,12 @@ import Data.Bifunctor
 import Data.Monoid
 import Data.Typeable
 import Data.Traversable
-import Control.Applicative
+import Data.Void
+import Control.Applicative 
 import Control.Monad
 import Control.Exception
 import Control.Concurrent
-import Control.Concurrent.Async
+import Control.Concurrent.Async(Concurrently(..),concurrently,mapConcurrently)
 
 data WrappedError e = WrappedError e
     deriving (Show, Typeable)
@@ -48,35 +50,77 @@ newtype Conceit e a = Conceit { runConceit :: IO (Either e a) } deriving Functor
 instance Bifunctor Conceit where
   bimap f g (Conceit x) = Conceit $ liftM (bimap f g) x
 
-instance (Show e, Typeable e) => Applicative (Conceit e) where
+instance Applicative (Conceit e) where
   pure = Conceit . pure . pure
   Conceit fs <*> Conceit as =
-    Conceit . revealError $ 
-        uncurry ($) <$> concurrently (elideError fs) (elideError as)
+         Conceit $ fmap (fmap (\(f, a) -> f a)) $ conceit fs as
 
-instance (Show e, Typeable e) => Alternative (Conceit e) where
+instance Alternative (Conceit e) where
   empty = Conceit $ forever (threadDelay maxBound)
   Conceit as <|> Conceit bs =
-    Conceit $ either id id <$> race as bs
+    Conceit $ fmap (fmap (either id id)) $ race as bs
 
-instance (Show e, Typeable e, Monoid a) => Monoid (Conceit e a) where
+instance (Monoid a) => Monoid (Conceit e a) where
    mempty = Conceit . pure . pure $ mempty
    mappend c1 c2 = (<>) <$> c1 <*> c2
 
 _Conceit :: IO a -> Conceit e a
 _Conceit = Conceit . fmap pure  
 
-conceit :: (Show e, Typeable e) 
-        => IO (Either e a)
-        -> IO (Either e b)
-        -> IO (Either e (a,b))
-conceit c1 c2 = runConceit $ (,) <$> Conceit c1 <*> Conceit c2
+_runConceit :: Conceit Void a -> IO a
+_runConceit c = either absurd id <$> runConceit c 
 
 {-| 
       Works similarly to 'Control.Concurrent.Async.mapConcurrently' from the
 @async@ package, but if any of the computations fails with @e@, the others are
 immediately cancelled and the whole computation fails with @e@. 
  -}
-mapConceit :: (Show e, Typeable e, Traversable t) => (a -> IO (Either e b)) -> t a -> IO (Either e (t b))
-mapConceit f = revealError .  mapConcurrently (elideError . f)
+mapConceit :: (Traversable t) => (a -> IO (Either e b)) -> t a -> IO (Either e (t b))
+mapConceit f = runConceit . sequenceA . fmap (Conceit . f)
+
+catchAll :: IO a -> (SomeException -> IO a) -> IO a
+catchAll = catch
+
+-- Adapted from the race function from async
+race :: IO (Either e a) -> IO (Either e b) -> IO (Either e (Either a b)) 
+race left right = conceit' left right collect
+  where
+    collect m = do
+        e <- takeMVar m
+        case e of
+            Left ex -> throwIO ex
+            Right (Right (Right r1)) -> return $ Right $ Right r1
+            Right (Right (Left e1)) -> return $ Left e1 
+            Right (Left (Right r2)) -> return $ Right $ Left r2 
+            Right (Left (Left e2)) -> return $ Left e2
+
+-- Adapted from the concurrently function from async
+conceit :: IO (Either e a) -> IO (Either e b) -> IO (Either e (a, b))
+conceit left right = conceit' left right (collect [])
+  where
+    collect [Left (Right a), Right (Right b)] _ = return $ Right (a,b)
+    collect [Right (Right b), Left (Right a)] _ = return $ Right (a,b)
+    collect (Left (Left ea):_) _ = return $ Left ea
+    collect (Right (Left eb):_) _ = return $ Left eb
+    collect xs m = do
+        e <- takeMVar m
+        case e of
+            Left ex -> throwIO ex
+            Right r -> collect (r:xs) m
+
+-- Verbatim copy of the internal concurrently' function from async
+conceit' :: IO a -> IO b
+         -> (MVar (Either SomeException (Either a b)) -> IO r)
+         -> IO r
+conceit' left right collect = do
+    done <- newEmptyMVar
+    mask $ \restore -> do
+        lid <- forkIO $ restore (left >>= putMVar done . Right . Left)
+                             `catchAll` (putMVar done . Left)
+        rid <- forkIO $ restore (right >>= putMVar done . Right . Right)
+                             `catchAll` (putMVar done . Left)
+        let stop = killThread lid >> killThread rid
+        r <- restore (collect done) `onException` stop
+        stop
+        return r
 
