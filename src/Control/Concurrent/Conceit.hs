@@ -80,7 +80,6 @@ instance Apply (Conceit s) where
     (<.) = (<*) 
     (.>) = (*>) 
 
-
 _Conceit :: IO a -> Conceit e a
 _Conceit = Conceit . fmap pure  
 
