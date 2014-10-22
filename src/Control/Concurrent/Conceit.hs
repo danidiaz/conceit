@@ -1,5 +1,8 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE CPP #-}
 
 module Control.Concurrent.Conceit ( 
           Conceit (..)
@@ -16,23 +19,28 @@ import Data.Traversable
 import Data.Void
 import Control.Applicative 
 import Control.Monad
-import Control.Exception
+import qualified Control.Monad.Catch as Ex
+import Control.Exception 
 import Control.Concurrent
 import Data.Functor.Bind
 import Data.Functor.Plus
+
+#if MIN_VERSION_mtl(2, 2, 1)
+import Control.Monad.Except
+#endif
 
 {-| 
     'Conceit' is very similar to 'Control.Concurrent.Async.Concurrently' from the
 @async@ package, but it has an explicit error type @e@.
 
-   The 'Applicative' instance is used to run actions concurrently, wait until
-they finish, and combine their results. 
+   The 'Applicative' instance runs two actions concurrently, waits until
+they finish, and combines their results. 
 
-   However, if any of the actions fails with @e@ the other actions are
-immediately cancelled and the whole computation fails with @e@. 
+   However, if any of the actions fails with @e@ the other action is
+   immediately cancelled and the whole computation fails with @e@. 
 
-    To put it another way: 'Conceit' behaves like 'Concurrently' for successes and
-like 'race' for errors.  
+    To put it another way: 'Conceit' behaves like 'Concurrently' for
+    successes and like 'race' for errors.  
 -}
 newtype Conceit e a = Conceit { runConceit :: IO (Either e a) } deriving Functor
 
@@ -53,6 +61,7 @@ instance (Monoid a) => Monoid (Conceit e a) where
    mempty = Conceit . pure . pure $ mempty
    mappend c1 c2 = (<>) <$> c1 <*> c2
 
+-- | `>>` is concurrent.
 instance Monad (Conceit e) where
    return = pure
    f >>= k = Conceit $ do
@@ -66,19 +75,39 @@ instance MonadPlus (Conceit e) where
    mzero = empty
    mplus = (<|>)
 
+-- | `<!>` makes the two arguments race against each other.
 instance Alt (Conceit e) where
     (<!>) = (<|>)
 
+-- | `zero` is a computation that never finishes.
 instance Plus (Conceit e) where
     zero = empty
 
+-- | `>>-` is sequential.
 instance Bind (Conceit s) where
     (>>-) = (>>=)
 
+-- | `<.>` is concurrent.
 instance Apply (Conceit s) where
     (<.>) = (<*>) 
     (<.) = (<*) 
     (.>) = (*>) 
+
+
+#if MIN_VERSION_mtl(2, 2, 1)
+instance MonadError e (Conceit e) where
+     throwError = Conceit . pure . Left
+     Conceit c `catchError`  h = 
+        Conceit $ runExceptT $ ExceptT c `catchError` (ExceptT . runConceit . h)
+#endif
+
+-- | Throws exceptions into IO.
+instance Ex.MonadThrow (Conceit e) where
+    throwM = Conceit . Ex.throwM
+
+-- | Catches exceptions from IO.
+instance Ex.MonadCatch (Conceit e) where
+      catch (Conceit m) f = Conceit $ Ex.catch m (runConceit . f)
 
 _Conceit :: IO a -> Conceit e a
 _Conceit = Conceit . fmap pure  
