@@ -18,6 +18,8 @@ import Control.Applicative
 import Control.Monad
 import Control.Exception
 import Control.Concurrent
+import Data.Functor.Bind
+import Data.Functor.Plus
 
 {-| 
     'Conceit' is very similar to 'Control.Concurrent.Async.Concurrently' from the
@@ -63,6 +65,21 @@ instance Monad (Conceit e) where
 instance MonadPlus (Conceit e) where
    mzero = empty
    mplus = (<|>)
+
+instance Alt (Conceit e) where
+    (<!>) = (<|>)
+
+instance Plus (Conceit e) where
+    zero = empty
+
+instance Bind (Conceit s) where
+    (>>-) = (>>=)
+
+instance Apply (Conceit s) where
+    (<.>) = (<*>) 
+    (<.) = (<*) 
+    (.>) = (*>) 
+
 
 _Conceit :: IO a -> Conceit e a
 _Conceit = Conceit . fmap pure  
