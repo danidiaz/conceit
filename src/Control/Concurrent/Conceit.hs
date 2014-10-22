@@ -75,7 +75,10 @@ instance MonadPlus (Conceit e) where
    mzero = empty
    mplus = (<|>)
 
--- | `<!>` makes the two arguments race against each other.
+instance MonadIO (Conceit e) where
+   liftIO = _Conceit
+
+-- | `<!>` makes its two arguments race against each other.
 instance Alt (Conceit e) where
     (<!>) = (<|>)
 

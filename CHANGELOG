@@ -1,3 +1,10 @@
+0.2.0.0
+=======
+    - Internal changes that remove the necessity for (Show e,Typeable e)
+      constraints.
+    - Removed async dependency.
+    - Many new instances for Conceit.
+
 0.1.1.0
 =======
 
