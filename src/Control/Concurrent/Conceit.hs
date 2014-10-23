@@ -19,6 +19,7 @@ import Data.Traversable
 import Data.Void
 import Control.Applicative 
 import Control.Monad
+import Control.Monad.IO.Class
 import qualified Control.Monad.Catch as Ex
 import Control.Exception 
 import Control.Concurrent
@@ -61,7 +62,7 @@ instance (Monoid a) => Monoid (Conceit e a) where
    mempty = Conceit . pure . pure $ mempty
    mappend c1 c2 = (<>) <$> c1 <*> c2
 
--- | `>>` is concurrent.
+-- | `>>` sequences its arguments.
 instance Monad (Conceit e) where
    return = pure
    f >>= k = Conceit $ do
@@ -69,7 +70,6 @@ instance Monad (Conceit e) where
       case x of 
          Left e -> return $ Left e                      
          Right r -> runConceit $ k r
-   f >> k = f *> k
 
 instance MonadPlus (Conceit e) where
    mzero = empty

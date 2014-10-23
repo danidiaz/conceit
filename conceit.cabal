@@ -1,5 +1,5 @@
 name:          conceit
-version:       0.2.0.0
+version:       0.2.1.0
 license:       BSD3
 license-file:  LICENSE
 data-files:    
@@ -27,7 +27,8 @@ Library
         bifunctors >= 4.1 && < 5,
         void >= 0.6 && < 0.7,
         exceptions >= 0.6 && < 0.7,
-        mtl >=2.0 && <2.3 
+        mtl >=2.0 && <2.3,
+        transformers >=0.2 && < 0.5
 
 Source-repository head
     type:     git
