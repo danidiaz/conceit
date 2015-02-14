@@ -1,3 +1,7 @@
+0.2.2.0
+=======
+    - Bumped void and exceptions dependencies.
+
 0.2.1.0
 =======
     - Now >> behaves differently from the concurrent *>, and sequences its
