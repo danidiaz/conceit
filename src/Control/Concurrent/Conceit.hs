@@ -79,7 +79,7 @@ instance MonadIO (Conceit e) where
    liftIO = _Conceit
 
 -- | `<!>` makes its two arguments race against each other.
-instance Alt (Conceit e) where
+instance Data.Functor.Plus.Alt (Conceit e) where
     (<!>) = (<|>)
 
 -- | `zero` is a computation that never finishes.

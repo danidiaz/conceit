@@ -1,3 +1,7 @@
+0.2.2.1
+=======
+    - Qualified Alt to make it compile with GHC 7.10.
+
 0.2.2.0
 =======
     - Bumped void and exceptions dependencies.
