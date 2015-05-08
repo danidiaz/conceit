@@ -1,3 +1,10 @@
+0.3.0.0
+=======
+    - Incorporate the solution to issue #27 from the async package
+      https://github.com/simonmar/async/issues/27 
+      This changes the order of cancellation of threads in case
+      of an asynchronous exception.
+
 0.2.2.1
 =======
     - Qualified Alt to make it compile with GHC 7.10.
