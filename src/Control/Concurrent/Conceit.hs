@@ -10,6 +10,9 @@ module Control.Concurrent.Conceit (
         , _runConceit
         , conceit
         , mapConceit
+        -- * Internals
+        -- $internals
+        , conceit'
     ) where
 
 import Data.Bifunctor
@@ -156,8 +159,13 @@ conceit left right = conceit' left right (collect [])
             Left ex -> throwIO ex
             Right r -> collect (r:xs) m
 
--- Verbatim copy of the internal concurrently' function from async
-conceit' :: IO a -> IO b
+
+{-| 
+    Verbatim copy of the internal @concurrently'@ function from the @async@
+    package.
+-}
+conceit' :: IO a 
+         -> IO b
          -> (MVar (Either SomeException (Either a b)) -> IO r)
          -> IO r
 conceit' left right collect = do

@@ -1,3 +1,7 @@
+0.3.1.0
+=======
+    - Made internal function "conceit'" public.
+
 0.3.0.0
 =======
     - Incorporate the solution to issue #27 from the async package
