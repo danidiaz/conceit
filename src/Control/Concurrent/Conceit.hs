@@ -1,8 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE CPP #-}
 
 module Control.Concurrent.Conceit ( 
           Conceit (..)
@@ -15,23 +11,17 @@ module Control.Concurrent.Conceit (
         , conceit'
     ) where
 
-import Data.Bifunctor
-import Data.Monoid
-import Data.Typeable
-import Data.Traversable
 import Data.Void
-import Control.Applicative 
-import Control.Monad
-import Control.Monad.IO.Class
-import qualified Control.Monad.Catch as Ex
-import Control.Exception 
-import Control.Concurrent
 import Data.Functor.Bind
 import Data.Functor.Plus
-
-#if MIN_VERSION_mtl(2, 2, 1)
-import Control.Monad.Except
-#endif
+import Data.Bifunctor
+import Data.Semigroup
+import Data.Monoid (Monoid,mempty,mappend)
+import Data.Traversable
+import Control.Applicative 
+import Control.Monad (forever)
+import Control.Exception 
+import Control.Concurrent
 
 {-| 
     'Conceit' is very similar to 'Control.Concurrent.Async.Concurrently' from the
@@ -43,13 +33,13 @@ they finish, and combines their results.
    However, if any of the actions fails with @e@ the other action is
    immediately cancelled and the whole computation fails with @e@. 
 
-    To put it another way: 'Conceit' behaves like 'Concurrently' for
-    successes and like 'race' for errors.  
+   To put it another way: 'Conceit' behaves like 'Concurrently' for
+   successes and like 'race' for errors.  
 -}
 newtype Conceit e a = Conceit { runConceit :: IO (Either e a) } deriving Functor
 
 instance Bifunctor Conceit where
-  bimap f g (Conceit x) = Conceit $ liftM (bimap f g) x
+  bimap f g (Conceit x) = Conceit $ liftA (bimap f g) x
 
 instance Applicative (Conceit e) where
   pure = Conceit . pure . pure
@@ -61,25 +51,12 @@ instance Alternative (Conceit e) where
   Conceit as <|> Conceit bs =
     Conceit $ fmap (fmap (either id id)) $ race as bs
 
+instance (Semigroup a) => Semigroup (Conceit e a) where
+  c1 <> c2 = (<>) <$> c1 <*> c2
+
 instance (Monoid a) => Monoid (Conceit e a) where
    mempty = Conceit . pure . pure $ mempty
-   mappend c1 c2 = (<>) <$> c1 <*> c2
-
--- | `>>` sequences its arguments.
-instance Monad (Conceit e) where
-   return = pure
-   f >>= k = Conceit $ do
-      x <- runConceit f
-      case x of 
-         Left e -> return $ Left e                      
-         Right r -> runConceit $ k r
-
-instance MonadPlus (Conceit e) where
-   mzero = empty
-   mplus = (<|>)
-
-instance MonadIO (Conceit e) where
-   liftIO = _Conceit
+   mappend c1 c2 = mappend <$> c1 <*> c2
 
 -- | `<!>` makes its two arguments race against each other.
 instance Data.Functor.Plus.Alt (Conceit e) where
@@ -89,35 +66,21 @@ instance Data.Functor.Plus.Alt (Conceit e) where
 instance Plus (Conceit e) where
     zero = empty
 
--- | `>>-` is sequential.
-instance Bind (Conceit s) where
-    (>>-) = (>>=)
-
 -- | `<.>` is concurrent.
 instance Apply (Conceit s) where
     (<.>) = (<*>) 
     (<.) = (<*) 
     (.>) = (*>) 
 
-
-#if MIN_VERSION_mtl(2, 2, 1)
-instance MonadError e (Conceit e) where
-     throwError = Conceit . pure . Left
-     Conceit c `catchError`  h = 
-        Conceit $ runExceptT $ ExceptT c `catchError` (ExceptT . runConceit . h)
-#endif
-
--- | Throws exceptions into IO.
-instance Ex.MonadThrow (Conceit e) where
-    throwM = Conceit . Ex.throwM
-
--- | Catches exceptions from IO.
-instance Ex.MonadCatch (Conceit e) where
-      catch (Conceit m) f = Conceit $ Ex.catch m (runConceit . f)
-
+{-| 
+    Construct a 'Conceit' as if it were a 'Control.Concurrent.Async.Concurrently'.
+-}
 _Conceit :: IO a -> Conceit e a
 _Conceit = Conceit . fmap pure  
 
+{-| 
+    Run a 'Conceit' as if it were a 'Control.Concurrent.Async.Concurrently'.
+-}
 _runConceit :: Conceit Void a -> IO a
 _runConceit c = either absurd id <$> runConceit c 
 
@@ -132,6 +95,7 @@ mapConceit f = runConceit . sequenceA . fmap (Conceit . f)
 catchAll :: IO a -> (SomeException -> IO a) -> IO a
 catchAll = catch
 
+
 -- Adapted from the race function from async
 race :: IO (Either e a) -> IO (Either e b) -> IO (Either e (Either a b)) 
 race left right = conceit' left right collect
@@ -144,6 +108,7 @@ race left right = conceit' left right collect
             Right (Right (Left e1)) -> return $ Left e1 
             Right (Left (Right r2)) -> return $ Right $ Left r2 
             Right (Left (Left e2)) -> return $ Left e2
+
 
 -- Adapted from the concurrently function from async
 conceit :: IO (Either e a) -> IO (Either e b) -> IO (Either e (a, b))

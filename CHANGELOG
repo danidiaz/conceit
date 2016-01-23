@@ -1,3 +1,9 @@
+0.4.0.0
+=======
+    - Removed Monad, MonadThrow, MonadCatch instances.
+    - Added Semigroup instance.
+    - Removed exception and mtl dependencies.
+
 0.3.1.0
 =======
     - Made internal function "conceit'" public.
