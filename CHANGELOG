@@ -1,3 +1,8 @@
+0.5.0.0
+=======
+    - Removed all dependencies except base. This is a breaking change because
+	  we lose the Alt, Plus and Apply instances.
+
 0.4.0.0
 =======
     - Removed Monad, MonadThrow, MonadCatch instances.

@@ -12,8 +12,6 @@ module Control.Concurrent.Conceit (
     ) where
 
 import Data.Void
-import Data.Functor.Bind
-import Data.Functor.Plus
 import Data.Bifunctor
 import Data.Semigroup
 import Data.Monoid (Monoid,mempty,mappend)
@@ -46,6 +44,7 @@ instance Applicative (Conceit e) where
   Conceit fs <*> Conceit as =
          Conceit $ fmap (fmap (\(f, a) -> f a)) $ conceit fs as
 
+-- | `<|>` makes its two arguments race against each other.
 instance Alternative (Conceit e) where
   empty = Conceit $ forever (threadDelay maxBound)
   Conceit as <|> Conceit bs =
@@ -56,21 +55,6 @@ instance (Semigroup a) => Semigroup (Conceit e a) where
 
 instance (Monoid a) => Monoid (Conceit e a) where
    mempty = Conceit . pure . pure $ mempty
-   mappend c1 c2 = mappend <$> c1 <*> c2
-
--- | `<!>` makes its two arguments race against each other.
-instance Data.Functor.Plus.Alt (Conceit e) where
-    (<!>) = (<|>)
-
--- | `zero` is a computation that never finishes.
-instance Plus (Conceit e) where
-    zero = empty
-
--- | `<.>` is concurrent.
-instance Apply (Conceit s) where
-    (<.>) = (<*>) 
-    (<.) = (<*) 
-    (.>) = (*>) 
 
 {-| 
     Construct a 'Conceit' as if it were a 'Control.Concurrent.Async.Concurrently'.
